@@ -1,0 +1,53 @@
+{
+  "name": "yamichan-bot",
+  "version": "2.3.2",
+  "description": "やみちゃんBot - 拡張可能なDiscordボット (AI会話、画像共有、歓迎メッセージ、VC通知)",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop yamichan-bot",
+    "pm2:restart": "pm2 restart yamichan-bot",
+    "pm2:logs": "pm2 logs yamichan-bot",
+    "pm2:delete": "pm2 delete yamichan-bot",
+    "db:init": "node -e \"require('dotenv').config(); require('./src/db/migrations').migrate(process.env.DATABASE_PATH || './data/yami.sqlite').then(()=>console.log('DB OK')).catch(e=>{console.error(e); process.exit(1);})\"",
+    "deploy:commands": "node src/deploy-commands.js",
+    "features:list": "node scripts/manage-features.js list",
+    "features:enable": "node scripts/manage-features.js enable",
+    "features:disable": "node scripts/manage-features.js disable"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "ai",
+    "chat",
+    "yamichan",
+    "welcome"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.79",
+    "@google/genai": "^1.39.0",
+    "@google/generative-ai": "^0.21.0",
+    "better-sqlite3": "^11.10.0",
+    "discord.js": "^14.25.1",
+    "dotenv": "^17.2.3",
+    "openai": "^6.25.0",
+    "sqlite3": "^5.1.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "pm2": "^5.3.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yamiyamiorg/yamichan-bot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yamiyamiorg/yamichan-bot/issues"
+  },
+  "homepage": "https://github.com/yamiyamiorg/yamichan-bot#readme"
+}
