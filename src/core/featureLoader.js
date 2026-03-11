@@ -71,6 +71,14 @@ async function loadFeatures(client) {
     logger.error('features.load.error', { err: err?.message });
   }
 
+  try {
+    client.loadedFeatureNames = features
+      .map((f) => String(f?.name || '').trim())
+      .filter(Boolean);
+  } catch (err) {
+    logger.warn('features.loaded_names.set_failed', { err: err?.message });
+  }
+
   return features;
 }
 

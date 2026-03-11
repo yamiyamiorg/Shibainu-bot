@@ -1,7 +1,7 @@
 {
   "name": "yamichan-bot",
   "version": "2.3.2",
-  "description": "やみちゃんBot - 拡張可能なDiscordボット (AI会話、画像共有、歓迎メッセージ、VC通知)",
+  "description": "やみちゃんBot - 拡張可能なDiscordボット (AI会話、画像共有、VC通知)",
   "main": "src/index.js",
   "scripts": {
     "dev": "nodemon src/index.js",
@@ -22,8 +22,7 @@
     "bot",
     "ai",
     "chat",
-    "yamichan",
-    "welcome"
+    "yamichan"
   ],
   "author": "",
   "license": "ISC",
@@ -51,3 +50,4 @@
   },
   "homepage": "https://github.com/yamiyamiorg/yamichan-bot#readme"
 }
+

@@ -1,6 +1,5 @@
 # やみちゃんBot v2.3 - リリースノート
 
-## 🎉 新機能: Welcome
 
 ### 概要
 
@@ -54,9 +53,7 @@ Bot: ようこそ、〇〇さん！🎉
 ### 新規ファイル
 
 ```
-src/features/welcome/
 ├── index.js              - メイン処理
-├── welcomeHandler.js     - 歓迎メッセージハンドラー
 ├── vcNotifyHandler.js    - VC通知ハンドラー
 ├── geminiService.js      - Gemini API連携
 └── db.js                 - データベース管理
@@ -64,19 +61,15 @@ src/features/welcome/
 
 ### データベース
 
-**テーブル:** `welcome_history`
 
 ```sql
-CREATE TABLE welcome_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id TEXT NOT NULL,
   guild_id TEXT NOT NULL,
-  welcomed_at INTEGER NOT NULL,
   UNIQUE(user_id, guild_id)
 );
 ```
 
-**パス:** `./data/welcome.sqlite`
 
 ### 必要なIntents（自動設定済み）
 
@@ -91,7 +84,6 @@ CREATE TABLE welcome_history (
 GEMINI_API_KEY=your_api_key
 
 # データベースパス（オプション）
-WELCOME_DB_PATH=./data/welcome.sqlite
 ```
 
 ### Discord Developer Portal設定
@@ -128,13 +120,11 @@ npm install
 
 # 3. features.conf 確認
 cat features.conf
-# welcome=true になっているか確認
 
 # 4. 再起動
 pm2 restart yamichan-bot
 
 # 5. ログ確認
-pm2 logs yamichan-bot | grep welcome
 ```
 
 ### 新規インストール
@@ -170,16 +160,10 @@ pm2 start ecosystem.config.js
 ### ログ確認
 
 ```bash
-pm2 logs yamichan-bot | grep welcome
 ```
 
 **期待されるログ:**
 ```
-welcome.feature.setup.complete
-welcome.message.trigger
-welcome.message.sent
-welcome.vc_notify.trigger
-welcome.vc_notify.sent
 ```
 
 ## トラブルシューティング
@@ -189,7 +173,6 @@ welcome.vc_notify.sent
 **確認項目:**
 1. チャンネルID: `1464999838130245742`
 2. キーワード: 「はじめまして」または「よろしく」
-3. DB確認: `sqlite3 data/welcome.sqlite`
 4. API Key: `echo $GEMINI_API_KEY`
 
 ### Q: VC通知が届かない
@@ -210,7 +193,6 @@ welcome.vc_notify.sent
 
 ### 本番環境で通知先を変更
 
-`src/features/welcome/index.js`:
 ```javascript
 const NOTIFICATION_CHANNEL_ID = '1466983702667067475'; // ← 本番チャンネルIDに変更
 ```
@@ -230,7 +212,6 @@ const TARGET_VC_IDS = [
 
 - Gemini API: 歓迎時のみ（1回/ユーザー）
 - DB書き込み: 歓迎時のみ
-- ストレージ: `welcome.sqlite` (数KB〜数MB)
 
 ## セキュリティ
 
@@ -241,7 +222,6 @@ const TARGET_VC_IDS = [
 
 ## まとめ
 
-Welcome機能により:
 
 ✅ **新規ユーザーを自動で歓迎**
 ✅ **初心者のVC参加を案内部に通知**

@@ -1,6 +1,4 @@
-# PM2 Welcome機能 クイックリファレンス
 
-## 🚨 Welcome機能が動作しない場合（緊急対応）
 
 ### 最速の解決法（3ステップ）
 
@@ -9,7 +7,6 @@
 ./scripts/pm2-complete-reset.sh
 
 # 2. ログで確認
-pm2 logs yamichan-bot | grep welcome
 
 # 3. Discordでテスト
 # チャンネル 1466983702667067475 で「はじめまして」を送信
@@ -19,7 +16,6 @@ pm2 logs yamichan-bot | grep welcome
 
 ```bash
 # 問題を自動診断
-./scripts/diagnose-welcome.sh
 ```
 
 ---
@@ -43,14 +39,11 @@ pm2 restart yamichan-bot
 ### 2. features.conf 確認
 
 ```bash
-cat features.conf | grep welcome
-# → welcome=true:test または welcome=true:prod になっているか？
 ```
 
 ❌ **無効または存在しない場合:**
 ```bash
 nano features.conf
-# welcome=true:test に変更
 pm2 restart yamichan-bot
 ```
 
@@ -58,19 +51,15 @@ pm2 restart yamichan-bot
 
 ```bash
 pm2 logs yamichan-bot | grep "bot.features.loaded"
-# → features に "welcome" が含まれているか？
 ```
 
-❌ **welcome が含まれない場合:**
 ```bash
 # 完全リセットが必要
 ./scripts/pm2-complete-reset.sh
 ```
 
-### 4. Welcome セットアップログ確認
 
 ```bash
-pm2 logs yamichan-bot | grep "welcome.feature.setup"
 # → セットアップログが出ているか？
 ```
 
@@ -107,7 +96,6 @@ Discord Developer Portal:
 
 ## 🔧 よくある問題と即座の解決法
 
-### 問題1: 「ログに welcome が出てこない」
 
 ```bash
 # 解決法
@@ -127,10 +115,8 @@ pm2 logs yamichan-bot
 
 ```bash
 # 診断
-./scripts/diagnose-welcome.sh
 
 # ログ確認
-pm2 logs yamichan-bot | grep -E "(MessageCreate|welcome.message)"
 
 # イベントリスナーが登録されていない可能性
 pm2 delete yamichan-bot
@@ -158,55 +144,40 @@ pm2 start ecosystem.config.js
 
 ```bash
 # ログでチャンネルIDを確認
-pm2 logs yamichan-bot | grep welcomeChannelId
 
 # テスト環境: 1466983702667067475
 # 本番環境: 1464999838130245742
 
 # features.conf で環境を確認
-cat features.conf | grep welcome
-# → welcome=true:test または prod
 ```
 
 ---
 
 ## 📊 ログの見方
 
-### 正常なログ（Welcome機能が有効）
 
 ```bash
-pm2 logs yamichan-bot | grep -E "(feature|welcome)" | tail -20
 ```
 
 **期待される出力:**
 
 ```
 ✅ .env loaded successfully
-bot.features.loaded count=4 features=["yami","choco","health","welcome"]
-welcome.feature.setup envTarget=test welcomeChannelId=1466983702667067475
-welcome.feature.setup targetVCCount=4
 ```
 
-### 異常なログ（Welcome機能が無効）
 
 ```
 bot.features.loaded count=3 features=["yami","choco","health"]
-# ← welcome が含まれていない
 ```
 
 ### 歓迎メッセージが送信された時のログ
 
 ```
-welcome.message.trigger userId=123... username=TestUser
-welcome.gemini.generated username=TestUser length=156
-welcome.message.sent userId=123... isTestUser=false
 ```
 
 ### VC通知が送信された時のログ
 
 ```
-welcome.vc_notify.trigger userId=123... channelId=145...
-welcome.vc_notify.sent userId=123... notifiedTo=146...
 ```
 
 ---
@@ -217,14 +188,12 @@ welcome.vc_notify.sent userId=123... notifiedTo=146...
 
 ```bash
 # 1. ログをリアルタイム監視
-pm2 logs yamichan-bot --raw | grep welcome
 
 # 2. Discord でテスト
 # チャンネル ID: 1466983702667067475 (テスト)
 # メッセージ: 「はじめまして」
 
 # 3. ログ確認
-# welcome.message.trigger が出れば成功
 ```
 
 ### VC通知のテスト
@@ -237,7 +206,6 @@ pm2 logs yamichan-bot --raw | grep vc_notify
 # VC ID: 1455097565367369764 (テスト環境)
 
 # 3. ログ確認
-# welcome.vc_notify.trigger が出れば成功
 ```
 
 ---
@@ -247,7 +215,6 @@ pm2 logs yamichan-bot --raw | grep vc_notify
 ### 歓迎履歴を確認
 
 ```bash
-sqlite3 data/welcome.sqlite
 ```
 
 ```sql
@@ -255,10 +222,8 @@ sqlite3 data/welcome.sqlite
 .tables
 
 -- 歓迎履歴を表示
-SELECT * FROM welcome_history;
 
 -- 特定ユーザーを削除（再テスト用）
-DELETE FROM welcome_history WHERE user_id = 'USER_ID';
 
 -- 終了
 .quit
@@ -279,8 +244,6 @@ pm2 status
 # 3. 機能読み込み確認
 pm2 logs yamichan-bot | grep bot.features
 
-# 4. Welcome セットアップ確認
-pm2 logs yamichan-bot | grep welcome.feature.setup
 
 # 5. 環境確認
 pm2 logs yamichan-bot | grep envTarget
@@ -328,7 +291,6 @@ cat debug-info.txt
 
 ```bash
 # 診断実行
-./scripts/diagnose-welcome.sh
 
 # ログを確認
 pm2 logs yamichan-bot | grep -E "(error|Error|ERROR|warn|Warn|WARN)"

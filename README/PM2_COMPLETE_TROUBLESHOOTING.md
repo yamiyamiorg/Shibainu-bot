@@ -1,10 +1,8 @@
-# PM2で Welcome機能が動作しない問題の完全対処法
 
 ## 症状
 
 - ✅ ローカル（`npm start`）: 動作する
 - ✅ `/yami` と `/choco`: PM2でも動作する
-- ❌ Welcome機能（歓迎メッセージ・VC通知）: PM2で動作しない
 
 ## 原因の可能性
 
@@ -165,23 +163,17 @@ pm2 logs yamichan-bot --lines 50
 ### Step 9: ログで確認すべきポイント
 
 ```bash
-pm2 logs yamichan-bot | grep -E "(welcome|feature|setup)"
 ```
 
 **期待される出力:**
 
 ```
 ✅ .env loaded successfully
-bot.features.loaded count=4 features=["yami","choco","health","welcome"]
-welcome.feature.setup envTarget=test
-welcome.feature.setup welcomeChannelId=1466983702667067475
 ```
 
 **もし以下が出ていない場合、問題あり:**
 
 ```
-❌ welcome.feature.setup が出ていない
-❌ features=["yami","choco","health"] のみ（welcomeがない）
 ```
 
 ### Step 10: Intentsを確認
@@ -206,7 +198,6 @@ pm2 restart yamichan-bot
 
 ```bash
 # ログをリアルタイムで監視
-pm2 logs yamichan-bot --raw | grep welcome
 ```
 
 別ターミナルで Discord にアクセスし、テストチャンネルで「はじめまして」を送信。
@@ -214,9 +205,6 @@ pm2 logs yamichan-bot --raw | grep welcome
 **期待されるログ:**
 
 ```
-welcome.message.trigger userId=... username=...
-welcome.gemini.generated username=... length=...
-welcome.message.sent userId=... isTestUser=false
 ```
 
 #### VC通知のテスト
@@ -231,8 +219,6 @@ pm2 logs yamichan-bot --raw | grep vc_notify
 **期待されるログ:**
 
 ```
-welcome.vc_notify.trigger userId=... channelId=...
-welcome.vc_notify.sent userId=... notifiedTo=...
 ```
 
 ## 問題が解決しない場合の詳細診断
@@ -245,10 +231,8 @@ pm2 logs yamichan-bot | grep "bot.features"
 
 **正常な場合:**
 ```
-bot.features.loaded count=4 features=["yami","choco","health","welcome"]
 ```
 
-**異常な場合（welcomeが含まれない）:**
 ```
 bot.features.loaded count=3 features=["yami","choco","health"]
 ```
@@ -273,7 +257,6 @@ console.log('Config:', JSON.stringify(config, null, 2));
   "yami": { "enabled": true, "env": null },
   "choco": { "enabled": true, "env": null },
   "health": { "enabled": true, "env": null },
-  "welcome": { "enabled": true, "env": "test" }
 }
 ```
 
@@ -409,11 +392,9 @@ pm2 start ecosystem.config.js
 
 ## デバッグ用の追加ログ
 
-`src/features/welcome/index.js` の先頭に追加:
 
 ```javascript
 // デバッグ用
-console.log('🔍 Welcome module loaded at:', new Date().toISOString());
 console.log('🔍 Process ID:', process.pid);
 console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
 console.log('🔍 GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
@@ -424,12 +405,9 @@ console.log('🔍 GEMINI_API_KEY exists:', !!process.env.GEMINI_API_KEY);
 - [ ] PM2を完全に停止・削除した（`pm2 kill`）
 - [ ] node_modulesを削除して再インストールした
 - [ ] .envファイルが存在し、正しい内容になっている
-- [ ] features.confで `welcome=true:test` になっている
 - [ ] ecosystem.config.jsが最新版になっている
 - [ ] Discord Developer PortalでIntentsが有効
 - [ ] dataディレクトリのパーミッションが正しい
-- [ ] ログで `welcome.feature.setup` が出力されている
-- [ ] ログで `bot.features.loaded` に welcome が含まれている
 - [ ] テストチャンネルIDが正しい（`1466983702667067475`）
 
 ## サポート用のログ収集
@@ -450,7 +428,6 @@ echo -e "\n=== Features Config ===" >> debug.log
 cat features.conf >> debug.log
 
 echo -e "\n=== Environment Variables ===" >> debug.log
-env | grep -E "(NODE_ENV|GEMINI|DISCORD|WELCOME)" >> debug.log
 
 echo -e "\n=== PM2 Logs (last 100 lines) ===" >> debug.log
 pm2 logs yamichan-bot --lines 100 --nostream >> debug.log 2>&1

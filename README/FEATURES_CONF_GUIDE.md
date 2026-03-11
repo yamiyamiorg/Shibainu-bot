@@ -2,7 +2,6 @@
 
 ## 概要
 
-`features.conf` で Welcome 機能の環境（テスト/本番）を切り替えることができます。
 
 ## 設定形式
 
@@ -18,7 +17,6 @@ yami=true
 choco=false
 ```
 
-### 拡張形式（Welcome機能）
 
 ```conf
 機能名=有効/無効:環境
@@ -26,17 +24,12 @@ choco=false
 
 **例:**
 ```conf
-welcome=true:test   # 有効 + テスト環境
-welcome=true:prod   # 有効 + 本番環境
-welcome=false       # 無効
 ```
 
-## Welcome機能の環境設定
 
 ### テスト環境（test）
 
 ```conf
-welcome=true:test
 ```
 
 **使用されるID:**
@@ -58,7 +51,6 @@ welcome=true:test
 ### 本番環境（prod）
 
 ```conf
-welcome=true:prod
 ```
 
 **使用されるID:**
@@ -85,22 +77,18 @@ welcome=true:prod
 nano features.conf
 
 # 2. 以下のように変更
-welcome=true:test
 
 # 3. 保存してBotを再起動
 pm2 restart yamichan-bot
 
 # 4. ログで確認
-pm2 logs yamichan-bot | grep "welcome.feature.setup"
 ```
 
 **期待されるログ:**
 ```json
 {
   "level": "info",
-  "event": "welcome.feature.setup",
   "envTarget": "test",
-  "welcomeChannelId": "1466983702667067475",
   "notificationChannelId": "1466983702667067475",
   "guideRoleId": "1472086791837454419",
   "targetVCCount": 4
@@ -114,22 +102,18 @@ pm2 logs yamichan-bot | grep "welcome.feature.setup"
 nano features.conf
 
 # 2. 以下のように変更
-welcome=true:prod
 
 # 3. 保存してBotを再起動
 pm2 restart yamichan-bot
 
 # 4. ログで確認
-pm2 logs yamichan-bot | grep "welcome.feature.setup"
 ```
 
 **期待されるログ:**
 ```json
 {
   "level": "info",
-  "event": "welcome.feature.setup",
   "envTarget": "prod",
-  "welcomeChannelId": "1464999838130245742",
   "notificationChannelId": "1464999838130245742",
   "guideRoleId": "1452478070652141729",
   "targetVCCount": 3
@@ -143,25 +127,17 @@ pm2 logs yamichan-bot | grep "welcome.feature.setup"
 `.env` ファイルまたは環境変数で個別IDを上書きできます。
 
 ```env
-# Welcome機能の環境設定（features.confより優先）
 ENV_TARGET=prod
 
 # 個別ID上書き（さらに優先）
-WELCOME_CHANNEL_ID=1234567890123456789
-WELCOME_NOTIFICATION_CHANNEL_ID=9876543210987654321
-WELCOME_GUIDE_ROLE_ID=1111111111111111111
-WELCOME_TARGET_VC_IDS=111,222,333
-WELCOME_TEST_USER_IDS=999,888
 ```
 
 ### 優先順位
 
 1. **環境変数の個別ID** （最優先）
-   - `WELCOME_CHANNEL_ID` など
 2. **ENV_TARGET環境変数**
    - `ENV_TARGET=prod` または `ENV_TARGET=test`
 3. **features.conf の環境設定**
-   - `welcome=true:prod` または `welcome=true:test`
 4. **デフォルト**（test）
 
 ## ユースケース
@@ -170,7 +146,6 @@ WELCOME_TEST_USER_IDS=999,888
 
 ```conf
 # features.conf
-welcome=true:test
 ```
 
 ```bash
@@ -183,7 +158,6 @@ npm start
 
 ```conf
 # features.conf
-welcome=true:test
 ```
 
 ```bash
@@ -197,7 +171,6 @@ pm2 logs yamichan-bot
 
 ```conf
 # features.conf
-welcome=true:prod
 ```
 
 ```bash
@@ -210,14 +183,12 @@ pm2 restart yamichan-bot
 
 ```conf
 # features.conf
-welcome=false
 ```
 
 ```bash
 pm2 restart yamichan-bot
 ```
 
-Welcome機能を完全停止。
 
 ## トラブルシューティング
 
@@ -241,7 +212,6 @@ pm2 start ecosystem.config.js
 A: ログを確認してください。
 
 ```bash
-pm2 logs yamichan-bot | grep "welcome.feature.setup"
 ```
 
 出力例:
@@ -283,7 +253,6 @@ ENV_TARGET=prod pm2 start ecosystem.config.js --name yamichan-bot-prod
 yami=true
 choco=false
 health=true
-welcome=true:test
 ```
 
 ### 例2: 完全本番環境
@@ -293,27 +262,20 @@ welcome=true:test
 yami=true
 choco=true
 health=true
-welcome=true:prod
 ```
 
-### 例3: Welcome無効
 
 ```conf
 # features.conf
 yami=true
 choco=true
 health=true
-welcome=false
 ```
 
 ## まとめ
 
 features.confで環境を簡単に切り替え:
 
-✅ **テスト環境**: `welcome=true:test`
-✅ **本番環境**: `welcome=true:prod`
-✅ **無効化**: `welcome=false`
 ✅ **環境変数で上書き**: `.env` に `ENV_TARGET=prod`
-✅ **個別ID上書き**: `.env` に `WELCOME_CHANNEL_ID=...`
 
 変更後は必ず `pm2 restart yamichan-bot` を実行！

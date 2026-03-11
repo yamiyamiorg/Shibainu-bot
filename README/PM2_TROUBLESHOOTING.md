@@ -68,9 +68,6 @@ pm2 logs yamichan-bot --lines 100
 
 期待されるログ:
 ```
-welcome.feature.setup envTarget=test welcomeChannelId=...
-welcome.message.trigger userId=... username=...
-welcome.message.sent userId=... length=...
 ```
 
 ### 2. 環境変数が読み込まれているか確認
@@ -164,7 +161,6 @@ pm2 start ecosystem.config.js
 
 **確認:**
 ```bash
-pm2 logs yamichan-bot | grep welcome
 ```
 
 **原因:**
@@ -175,12 +171,9 @@ pm2 logs yamichan-bot | grep welcome
 **解決:**
 ```bash
 # features.confを確認
-cat features.conf | grep welcome
 
-# welcome=true:test になっているか確認
 
 # チャンネルIDを確認
-pm2 logs yamichan-bot | grep "welcome.feature.setup"
 ```
 
 ### 問題3: VC通知が届かない
@@ -229,8 +222,6 @@ pm2 logs yamichan-bot --raw
 # エラーのみ
 pm2 logs yamichan-bot --err
 
-# welcomeに関連するログのみ
-pm2 logs yamichan-bot | grep welcome
 ```
 
 ## PM2とローカルの違い

@@ -35,7 +35,6 @@ pm2 logs yamichan-bot          # ログ確認
 | **Omikuji** | `omikuji=true` | `/omikuji` で今日の運勢を引く（全100パターン） |
 | **Choco** | `choco=true` | バレンタイン企画。保存済みチョコ画像をランダム表示 |
 | **Boost** | `boost=true:prod` | サーバーブースト時に雑談掲示板へお礼メッセージを自動送信 |
-| **Welcome** | `welcome=true:prod` | 入会14日以内のユーザーの挨拶を検知してGemini生成の歓迎文を送信 |
 | **ServerStats** | `serverstats=true:prod` | 専用チャンネルにサーバー統計・週次レポート・今日の一言・VC通知を表示 |
 | **DiaryReaction** | `diaryreaction=false` | 秘密の日記への投稿をGeminiが解析し絵文字リアクションを自動付与 |
 | **Health** | `health=true` | ボット自身の死活監視（内部機能） |
@@ -59,7 +58,6 @@ yami=true
 choco=true
 health=true
 omikuji=true
-welcome=true:prod
 boost=true:prod
 serverstats=true:prod
 diaryreaction=false
@@ -105,8 +103,6 @@ DIARY_FORUM_CHANNEL_ID_PROD=
 | Intent | 用途 |
 |--------|------|
 | ✅ PRESENCE INTENT | ServerStats（オンライン人数計測） |
-| ✅ SERVER MEMBERS INTENT | ServerStats・Boost・Welcome |
-| ✅ MESSAGE CONTENT INTENT | Yami・Welcome・DiaryReaction |
 
 ### Bot権限（スコープ: `bot` + `applications.commands`）
 
@@ -549,7 +545,6 @@ diaryreaction=true:prod   # 本番＋テスト両方で監視開始
 
 ---
 
-## 🎤 Welcome 詳細
 
 入会から14日以内のユーザーが初心者向け雑談チャンネルで挨拶を投稿すると、GeminiがそのユーザーのIDや内容を加味した歓迎文を生成して返信します。
 
@@ -613,7 +608,6 @@ src/
 │   │   ├── regularScore.js     # 常連スコア計算
 │   │   ├── keywordExtractor.js # キーワード抽出
 │   │   └── migrations.js       # DBスキーマ定義
-│   ├── welcome/                # 歓迎メッセージ
 │   └── yami/                   # AI会話
 ├── commands/
 │   ├── choco.js

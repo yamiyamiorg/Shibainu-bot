@@ -47,7 +47,6 @@
 | **Boost** | View Channels, Send Messages, Manage Messages | 11264 |
 | **ServerStats** | View Channels, Send Messages, Manage Messages, **Manage Channels** | 11280 |
 | **Nukumori** | View Channels, Read Message History | 66560 |
-| **Welcome** | View Channels, Send Messages | 3072 |
 | **その他** | View Channels, Send Messages | 3072 |
 
 ## 🎯 推奨Bot招待URL（全機能統合版）
@@ -95,7 +94,6 @@ https://discord.com/oauth2/authorize?client_id=1463309552320512163&permissions=1
 **用途:** チャンネルの閲覧
 
 ### Send Messages (2048)
-**使用箇所:** Boost, ServerStats, Welcome
 **用途:** メッセージの送信
 
 ### Manage Messages (8192)

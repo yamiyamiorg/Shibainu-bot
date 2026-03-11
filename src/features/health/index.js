@@ -1,8 +1,6 @@
 // src/features/health/index.js
 const { Events, EmbedBuilder } = require('discord.js');
 const { logger } = require('../../services/logger');
-const fs = require('fs/promises');
-const path = require('path');
 
 // 起動時刻を記録
 const startTime = Date.now();
@@ -43,27 +41,13 @@ module.exports = {
           heapTotal: (memUsage.heapTotal / 1024 / 1024).toFixed(2),
         };
 
-        // 有効な機能を確認
-        const featuresDir = path.join(__dirname, '..');
-        const featureList = [];
-        
-        try {
-          const entries = await fs.readdir(featuresDir, { withFileTypes: true });
-          for (const entry of entries) {
-            if (!entry.isDirectory()) continue;
-            try {
-              const feature = require(path.join(featuresDir, entry.name, 'index.js'));
-              const isEnabled = !feature.enabled || feature.enabled();
-              if (isEnabled && feature.name !== 'health') {
-                featureList.push(`✅ ${feature.name}`);
-              }
-            } catch (e) {
-              // スキップ
-            }
-          }
-        } catch (e) {
-          logger.warn('health.features.scan.failed', { err: e?.message });
-        }
+        // 実際に読み込み済みの機能のみ表示（オミット済み機能を出さない）
+        const loaded = Array.isArray(client.loadedFeatureNames)
+          ? client.loadedFeatureNames
+          : [];
+        const featureList = loaded
+          .filter((name) => name && name !== 'health')
+          .map((name) => `✅ ${name}`);
 
         // Embed作成
         const embed = new EmbedBuilder()

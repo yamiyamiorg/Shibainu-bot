@@ -3,7 +3,6 @@
 ## 🔄 更新内容
 
 Nukumori機能に**テスト環境/本番環境の切り替え**機能を追加しました。
-WelcomeやBoostと同じパターンで、`features.conf`で簡単に切り替えられます。
 
 ## 📋 変更点
 
@@ -38,7 +37,6 @@ nukumori=true:test   # テスト環境
 
 ### 3. 設定ファイルの構造
 
-`src/config/nukumoriTarget.js` が Welcome/Boost と同じパターンになりました：
 
 ```javascript
 const TEST = {

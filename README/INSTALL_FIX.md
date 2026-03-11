@@ -1,4 +1,3 @@
-# Welcome機能のインストール修正
 
 ## エラー内容
 
@@ -24,7 +23,6 @@ npm install better-sqlite3
 pm2 restart yamichan-bot
 
 # ログ確認
-pm2 logs yamichan-bot | grep welcome
 ```
 
 ### 方法2: package.jsonを確認
@@ -124,15 +122,12 @@ pm2 restart yamichan-bot
 # 3. エラーログ確認
 pm2 logs yamichan-bot --err --lines 20
 
-# 4. Welcome機能のログ確認
-pm2 logs yamichan-bot | grep welcome.feature.setup
 ```
 
 期待されるログ:
 ```json
 {
   "level": "info",
-  "event": "welcome.feature.setup",
   "envTarget": "test"
 }
 ```

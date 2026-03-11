@@ -1,4 +1,3 @@
-# Welcome機能が動作しない場合の対処法
 
 ## ❌ エラー: Cannot find module 'better-sqlite3'
 
@@ -34,14 +33,12 @@ pm2 restart yamichan-bot
 ### Step 3: ログで確認
 
 ```bash
-pm2 logs yamichan-bot | grep welcome
 ```
 
 **期待されるログ:**
 ```json
 {
   "level": "info",
-  "event": "welcome.feature.setup",
   "envTarget": "test"
 }
 ```
@@ -108,7 +105,6 @@ npm install
 pm2 restart yamichan-bot
 
 # 5. 確認
-pm2 logs yamichan-bot | grep welcome
 ```
 
 ---
@@ -167,20 +163,16 @@ npm list better-sqlite3
 ### 2. PM2ログの確認
 
 ```bash
-pm2 logs yamichan-bot | grep -E "(feature|welcome)"
 ```
 
 **期待される出力:**
 ```
-bot.features.loaded count=4 features=["yami","choco","health","welcome"]
-welcome.feature.setup envTarget=test
 ```
 
 ### 3. データベースファイルの確認
 
 ```bash
 ls -la data/
-# → welcome.sqlite が作成されていればOK（初回実行後）
 ```
 
 ### 4. Discord でテスト
@@ -189,8 +181,6 @@ ls -la data/
 
 **期待されるログ:**
 ```
-welcome.message.trigger userId=...
-welcome.message.sent userId=...
 ```
 
 ---
@@ -216,11 +206,9 @@ welcome.message.sent userId=...
 ## 🎯 まとめ
 
 **better-sqlite3 が必要な理由:**
-- Welcome機能の歓迎履歴を保存するため
 - 1人1回制限を実現するため
 
 **インストールされていない場合:**
-- Welcome機能が読み込まれない
 - エラーログに "Cannot find module 'better-sqlite3'" と表示
 
 **解決法:**
