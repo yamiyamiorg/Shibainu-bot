@@ -10,7 +10,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,    // ServerStats, Welcome(VC通知)で必要
+    GatewayIntentBits.GuildVoiceStates,    // 将来の音声系機能で必要
     GatewayIntentBits.GuildMembers,        // ServerStats, Boostで必要
     GatewayIntentBits.GuildPresences,      // ServerStats: オンライン人数検知に必要
     GatewayIntentBits.GuildMessageReactions, // DiaryReaction, 将来用

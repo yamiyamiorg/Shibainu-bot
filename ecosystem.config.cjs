@@ -3,7 +3,7 @@ require('dotenv').config(); // 追加: PM2起動時に.envを読み込む
 
 module.exports = {
   apps: [{
-    name: 'yamichan-bot',
+    name: 'shibainu-bot',
     script: './src/index.js',
     cwd: __dirname,
     instances: 1,

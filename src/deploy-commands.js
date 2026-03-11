@@ -51,56 +51,6 @@ const commands = [
     name: 'omikuji',
     description: 'やみちゃんがおみくじを引いてくれる（全100パターン）',
   },
-  // ===== img機能 =====
-  {
-    name: 'img',
-    description: '画像生成 (プリセット組み立て or 完全自由入力)',
-    options: [
-      {
-        name: 'mode',
-        description: '入力モードを選択',
-        type: 3,
-        required: true,
-        choices: [
-          { name: 'プリセットを使う', value: 'preset' },
-          { name: 'プリセットを使わない（完全自由入力）', value: 'free' },
-        ],
-      },
-      {
-        name: 'style',
-        description: '画風・ジャンル（preset時に使用）',
-        type: 3,
-        required: false,
-        choices: [
-          { name: '人物', value: 'portrait' },
-          { name: '動物', value: 'animal' },
-          { name: 'イラスト風', value: 'illustration' },
-          { name: 'アニメ風', value: 'anime' },
-          { name: '写実風', value: 'photorealistic' },
-          { name: 'シネマ風', value: 'cinematic' },
-        ],
-      },
-      {
-        name: 'main',
-        description: 'メインの被写体（自由入力）',
-        type: 3,
-        required: false,
-      },
-      {
-        name: 'scene',
-        description: 'シチュエーション・表情・雰囲気（自由入力）',
-        type: 3,
-        required: false,
-      },
-      {
-        name: 'prompt',
-        description: '完全自由入力（free時に使用）',
-        type: 3,
-        required: false,
-      },
-    ],
-  },
-
 ];
 
 // ===== デプロイ処理 =====
