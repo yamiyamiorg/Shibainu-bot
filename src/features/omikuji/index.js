@@ -216,7 +216,7 @@ function buildOmikujiEmbed(fortune, text, username, opts = {}) {
         .setColor(fortune.color)
         .setTitle(`${fortune.emoji} ${fortune.label}`)
         .setDescription(text)
-        .addFields({ name: 'やみより', value: `${yamiMsg}${penaltyNote}`, inline: false })
+        .addFields({ name: 'しばいぬより', value: `${yamiMsg}${penaltyNote}`, inline: false })
         .setFooter({ text: `${username} さんの今日の運勢` })
         .setTimestamp();
 }
