@@ -49,7 +49,7 @@ const commands = [
   // ===== Omikuji機能 =====
   {
     name: 'omikuji',
-    description: 'やみちゃんがおみくじを引いてくれる（全100パターン）',
+    description: 'おみくじを引いてくれる（全100パターン）',
   },
 ];
 
