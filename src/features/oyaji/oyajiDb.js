@@ -77,8 +77,17 @@ function migrateOyaji(db) {
   `);
 
   // ── oyaji_sessions ─────────────────────────────────────────────
-  // ユーザーごとに1件のみ。
-  // status: 'active' | 'ended' | 'orphaned' | 'stale'
+  // v1: voice_channel_id 主軸・rank あり
+  // v2: user_id 主軸・rank なし・thread_id あり
+  //
+  // v1 テーブルが残っている場合は DROP して作り直す。
+  const sessionCols = db.pragma('table_info(oyaji_sessions)').map((r) => r.name);
+  const isV1Sessions = sessionCols.length > 0 && sessionCols.includes('voice_channel_id');
+  if (isV1Sessions) {
+    db.exec('DROP TABLE IF EXISTS oyaji_sessions;');
+    logger.info('oyaji.db.migrate.sessions_v1_dropped');
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS oyaji_sessions (
       session_id           TEXT    NOT NULL PRIMARY KEY,
@@ -95,10 +104,10 @@ function migrateOyaji(db) {
     );
   `);
 
-  // UNIQUE制約が古い形式の場合の後方互換パッチ
-  const sessionCols = db.pragma('table_info(oyaji_sessions)').map((r) => r.name);
-  if (!sessionCols.includes('restarted_at')) {
-    db.exec(`ALTER TABLE oyaji_sessions ADD COLUMN restarted_at INTEGER;`);
+  // restarted_at が無い場合の後方互換パッチ
+  const sessionColsNew = db.pragma('table_info(oyaji_sessions)').map((r) => r.name);
+  if (!sessionColsNew.includes('restarted_at')) {
+    db.exec('ALTER TABLE oyaji_sessions ADD COLUMN restarted_at INTEGER;');
     logger.info('oyaji.db.migrate.added_restarted_at');
   }
 

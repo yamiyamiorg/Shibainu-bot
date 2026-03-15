@@ -63,14 +63,6 @@ const oyajiCommand = new SlashCommandBuilder()
     sub.setName('start').setDescription('VCにおやじを呼ぶ')
   )
   .addSubcommand((sub) =>
-    sub
-      .setName('say')
-      .setDescription('おやじに話しかける')
-      .addStringOption((opt) =>
-        opt.setName('text').setDescription('話しかける内容').setRequired(true)
-      )
-  )
-  .addSubcommand((sub) =>
     sub.setName('status').setDescription('現在の人生段階と関係の深さを確認する')
   )
   .addSubcommand((sub) =>
