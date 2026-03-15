@@ -426,18 +426,33 @@ module.exports = {
       // ── 世代選択 Select Menu ───────────────────────────────────
       if (
         interaction.isStringSelectMenu() &&
-        interaction.customId.startsWith(`oyaji_stage_select:${userId}`)
+        interaction.customId.startsWith('oyaji_stage_select:')
       ) {
+        // customId に埋め込んだ userId と操作者が一致するか確認
+        const [, embedUserId] = interaction.customId.split(':');
+        if (embedUserId !== userId) {
+          await interaction.reply({ content: 'これはあなたの選択肢じゃないべ。', flags: MessageFlags.Ephemeral });
+          return;
+        }
+
         const selectedStage = interaction.values[0];
         const stage         = getStage(selectedStage);
 
+        // ── Bug fix 1: deferUpdate ではなく deferReply(ephemeral) を使う ──
+        // deferUpdate() はメッセージを更新する用途。
+        // スレッド生成などの非同期処理後に editReply で返すには
+        // deferReply を使う方が安全で Discord の 3秒制限を回避できる。
         try {
-          await interaction.deferUpdate();
+          await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+        } catch (err) {
+          logger.error('oyaji.stage_select.defer_failed', { userId, guildId, err: err?.message });
+          return;
+        }
 
-          // スレッド名: 「おやじの居間 - username」
+        try {
           const threadName = `おやじの居間 - ${interaction.user.username}`;
 
-          // 既存のactiveセッションがあれば世代切替として扱う（DB側で旧セッションを終了）
+          // DB にセッションを作成（既存 active があれば ended にして新規作成）
           const session = db.startSession({
             guildId,
             userId,
@@ -445,51 +460,72 @@ module.exports = {
             stage:         selectedStage,
           });
 
-          // スレッドを作成または既存を再利用
-          let thread;
-          const existingThreadId = session.thread_id; // startSession後は null
+          // ── Bug fix 2: interaction.channel が null になるケースへの対策 ──
+          // エフェメラルの Select Menu を DM やアーカイブ済みチャンネルで操作すると
+          // interaction.channel が null になる。
+          // channel は fetch して確実に取得する。
+          const channel = interaction.channel
+            ?? await client.channels.fetch(interaction.channelId).catch(() => null);
 
-          if (!existingThreadId) {
+          let thread = null;
+
+          if (channel) {
             try {
-              thread = await interaction.channel.threads.create({
-                name:                 threadName,
-                autoArchiveDuration:  60, // 60分非活動でアーカイブ
+              // ── Bug fix 3: threads.create() の autoArchiveDuration ──
+              // 60 は discord.js v14 では無効値（10080 などが正しい）。
+              // MAX(10080=7日) を指定して確実に動かす。
+              thread = await channel.threads.create({
+                name:                threadName,
+                autoArchiveDuration: 10080,
               });
               db.updateSessionThread(session.session_id, thread.id);
-            } catch (err) {
-              // スレッド作成失敗時はチャンネル本体に送る
-              logger.warn('oyaji.thread.create_failed', { err: err?.message });
-              thread = interaction.channel;
+              logger.info('oyaji.thread.created', { threadId: thread.id, sessionId: session.session_id });
+            } catch (threadErr) {
+              // スレッド作成失敗（権限不足・ニュースチャンネル等）→ チャンネル本体にフォールバック
+              logger.warn('oyaji.thread.create_failed', {
+                err: threadErr?.message,
+                code: threadErr?.code,
+                channelType: channel.type,
+              });
+              thread = channel;
             }
           } else {
-            thread = client.channels.cache.get(existingThreadId) || interaction.channel;
+            // チャンネル自体が取得できない（稀ケース）
+            logger.warn('oyaji.stage_select.channel_null', { channelId: interaction.channelId });
+            await interaction.editReply({ content: 'チャンネルが見つからなかったべ。もう一度試してくれ。' });
+            db.endSession(session.session_id);
+            return;
           }
 
-          // 記憶とプロフィールを取得して開始メッセージを生成
+          // 記憶・プロフィール取得 → 開始メッセージ生成
           const profile  = db.getProfile(guildId, userId);
           const memories = db.getRecentMemories(guildId, userId);
           const startMsg = buildStartMessage(stage, profile, memories);
 
-          // 開始メッセージ + 会話フックボタン
+          // 開始メッセージ + 会話フックボタンをスレッド（またはチャンネル）に送る
           await thread.send({
             content:    startMsg,
             components: [buildHookButtons(session.session_id)],
           });
 
-          // エフェメラルを更新
+          // エフェメラルの返答を確定
           await interaction.editReply({
-            content:    `${stage.emoji} **${stage.label}**のおやじを呼んだよ。\n→ ${thread.toString()} で話しかけてね。`,
-            components: [],
+            content: `${stage.emoji} **${stage.label}**のおやじを呼んだよ。\n${thread.toString()} で **@${client.user.username}** とメンションして話しかけてね。`,
           });
 
           logger.info('oyaji.start.ok', {
             sessionId: session.session_id, guildId, userId, stage: selectedStage,
+            threadId: thread.id,
           });
 
         } catch (err) {
-          logger.error('oyaji.stage_select.error', { userId, guildId, err: err?.message });
+          logger.error('oyaji.stage_select.error', {
+            userId, guildId,
+            err: err?.message,
+            stack: err?.stack,
+          });
           try {
-            await interaction.editReply({ content: 'うまくいかなかったべ。もう一度試してくれ。', components: [] });
+            await interaction.editReply({ content: 'うまくいかなかったべ。もう一度試してくれ。' });
           } catch { /* ignore */ }
         }
         return;
