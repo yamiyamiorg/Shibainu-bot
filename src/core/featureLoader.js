@@ -1,4 +1,5 @@
 // src/core/featureLoader.js
+
 const fs = require('fs/promises');
 const path = require('path');
 const { logger } = require('../services/logger');
@@ -16,6 +17,9 @@ const { logger } = require('../services/logger');
 async function loadFeatures(client) {
   const featuresDir = path.join(__dirname, '../features');
   const features = [];
+
+  // このbotに存在しない / 別botへ移管済みの機能を除外する
+  // ※ oyaji は features/ 配下にディレクトリを置けばそのまま動く
   const OMITTED_FEATURES = new Set(['yami', 'boost', 'serverstats']);
 
   try {
@@ -23,6 +27,7 @@ async function loadFeatures(client) {
 
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
+
       if (OMITTED_FEATURES.has(entry.name)) {
         logger.info('feature.omitted', { name: entry.name, reason: 'migrated_to_other_bot' });
         continue;
@@ -31,39 +36,35 @@ async function loadFeatures(client) {
       const featurePath = path.join(featuresDir, entry.name, 'index.js');
 
       try {
-        // ファイルの存在確認
         await fs.access(featurePath);
 
-        // 機能モジュールを読み込み
         const feature = require(featurePath);
 
         logger.info('feature.processing', { name: entry.name, featureName: feature.name });
 
-        // enabled チェック
+        // enabled() チェック（features.conf の値を見る）
         if (feature.enabled && !feature.enabled()) {
           logger.info('feature.disabled', { name: feature.name || entry.name });
           continue;
         }
 
-        // setup実行
         if (typeof feature.setup === 'function') {
           await feature.setup(client);
           features.push(feature);
           logger.info('feature.loaded', {
             name: feature.name,
-            description: feature.description
+            description: feature.description,
           });
         } else {
           logger.warn('feature.invalid', {
             name: entry.name,
-            reason: 'Missing setup function'
+            reason: 'Missing setup function',
           });
         }
       } catch (err) {
-        // 機能の読み込み失敗は警告のみで継続
         logger.warn('feature.load.failed', {
           name: entry.name,
-          err: err?.message
+          err: err?.message,
         });
       }
     }
