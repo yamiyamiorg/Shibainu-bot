@@ -1,43 +1,38 @@
 // src/features/oyaji/oyajiDb.js
 //
-// おやじBot 専用 DB 操作（better-sqlite3）。
+// おやじBot 専用 DB 操作（better-sqlite3）v2
 //
-// ── 再起動フェイルセーフ設計 ──────────────────────────────────────
+// ── v2 での設計変更 ─────────────────────────────────────────────
 //
-//  問題: Bot 再起動時に _sessionMeta（インメモリ）が消える。
-//        DB 上の status='active' セッションが宙吊りになる。
-//        → 再起動後に /oyaji start が「もうセッションある」と弾かれる。
+//  v1: VCセッション単位・rankSystem連動・tickタイマーあり
+//  v2: ユーザー個人セッション単位・世代はユーザー選択・tickなし
 //
-//  解決策: setup() 起動時に recoverSessionsOnBoot() を呼ぶ。
+//  テーブル構成:
+//    oyaji_profiles    - ユーザーの来訪履歴・選択世代・セッション数
+//    oyaji_sessions    - 現在進行中のセッション（ユーザーごと1件）
+//    oyaji_memories    - 短期記憶（最大3件）
+//    oyaji_interactions - 会話ログ
 //
-//  recoverSessionsOnBoot(client) の動作:
-//    1. DB から status='active' のセッションを全件取得
-//    2. 各セッションの VoiceChannel を Discord から実際に確認
-//    3a. VC が存在 かつ オーナーがまだいる → restarted_at を更新して継続
-//    3b. VC が存在しない / オーナーがいない → status='orphaned' に変更
-//    3c. last_tick_at が STALE_THRESHOLD 以上前 → status='stale' に変更
+// ── 再起動フェイルセーフ ─────────────────────────────────────────
 //
-//  status 一覧:
-//    'active'   - 正常稼働中
-//    'ended'    - 正常終了
-//    'orphaned' - 再起動時にオーナー不在と判明
-//    'stale'    - 再起動時に長時間放置と判明
+//  recoverSessionsOnBoot(client) を setup() の ClientReady で呼ぶ。
+//  - スレッドが存在しない → orphaned
+//  - last_interaction_at が STALE_THRESHOLD 以上前 → stale
+//  - それ以外 → restarted_at を更新して継続
 
 'use strict';
 
 const path = require('path');
 const BetterSqlite = require('better-sqlite3');
 const { logger } = require('../../services/logger');
-const { calcRankFromMinutes, getLifeStage } = require('./rankSystem');
 
-const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
+const PROJECT_ROOT   = path.resolve(__dirname, '..', '..', '..');
 const DEFAULT_DB_PATH = path.join(PROJECT_ROOT, 'data', 'oyaji.db');
 
-// 再起動時に STALE とみなす閾値（ms）
-// last_tick_at がこれ以上古ければ孤立扱い
-const STALE_THRESHOLD_MS = 30 * 60 * 1000; // 30分
+// セッションがstaleとみなす閾値（最後の発言からこの時間以上→タイムアウト対象）
+const STALE_THRESHOLD_MS = 60 * 60 * 1000; // 1時間
 
-// ── DB 接続（シングルトン）────────────────────────────────────────
+// ── DB接続（シングルトン）─────────────────────────────────────────
 
 let _db = null;
 
@@ -62,43 +57,45 @@ function getDb() {
   return _db;
 }
 
-// ── マイグレーション ───────────────────────────────────────────────
+// ── マイグレーション ──────────────────────────────────────────────
 
 function migrateOyaji(db) {
-  // ── oyaji_profiles ──────────────────────────────────────────────
+
+  // ── oyaji_profiles ─────────────────────────────────────────────
+  // ユーザーの来訪履歴。世代はユーザーが毎回選ぶが「前回の世代」を保持する。
   db.exec(`
     CREATE TABLE IF NOT EXISTS oyaji_profiles (
       guild_id         TEXT    NOT NULL,
       user_id          TEXT    NOT NULL,
-      total_minutes    INTEGER NOT NULL DEFAULT 0,
-      current_rank     INTEGER NOT NULL DEFAULT 1,
-      current_stage    TEXT    NOT NULL DEFAULT 'childhood',
+      last_visit_at    INTEGER,
+      last_stage       TEXT,
+      session_count    INTEGER NOT NULL DEFAULT 0,
       created_at       INTEGER NOT NULL,
       updated_at       INTEGER NOT NULL,
       PRIMARY KEY (guild_id, user_id)
     );
   `);
 
-  // ── oyaji_sessions ──────────────────────────────────────────────
+  // ── oyaji_sessions ─────────────────────────────────────────────
+  // ユーザーごとに1件のみ。
+  // status: 'active' | 'ended' | 'orphaned' | 'stale'
   db.exec(`
     CREATE TABLE IF NOT EXISTS oyaji_sessions (
-      session_id        TEXT    NOT NULL PRIMARY KEY,
-      guild_id          TEXT    NOT NULL,
-      voice_channel_id  TEXT    NOT NULL,
-      text_channel_id   TEXT    NOT NULL,
-      thread_channel_id TEXT,
-      owner_user_id     TEXT    NOT NULL,
-      started_at        INTEGER NOT NULL,
-      last_tick_at      INTEGER NOT NULL,
-      current_rank      INTEGER NOT NULL DEFAULT 1,
-      current_stage     TEXT    NOT NULL DEFAULT 'childhood',
-      status            TEXT    NOT NULL DEFAULT 'active',
-      restarted_at      INTEGER,
-      UNIQUE (guild_id, voice_channel_id)
+      session_id           TEXT    NOT NULL PRIMARY KEY,
+      guild_id             TEXT    NOT NULL,
+      user_id              TEXT    NOT NULL,
+      text_channel_id      TEXT    NOT NULL,
+      thread_id            TEXT,
+      current_stage        TEXT    NOT NULL,
+      started_at           INTEGER NOT NULL,
+      last_interaction_at  INTEGER NOT NULL,
+      status               TEXT    NOT NULL DEFAULT 'active',
+      restarted_at         INTEGER,
+      UNIQUE (guild_id, user_id, status)
     );
   `);
 
-  // 既存 DB の後方互換: restarted_at が無い場合に追加
+  // UNIQUE制約が古い形式の場合の後方互換パッチ
   const sessionCols = db.pragma('table_info(oyaji_sessions)').map((r) => r.name);
   if (!sessionCols.includes('restarted_at')) {
     db.exec(`ALTER TABLE oyaji_sessions ADD COLUMN restarted_at INTEGER;`);
@@ -106,11 +103,12 @@ function migrateOyaji(db) {
   }
 
   db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_oyaji_sessions_guild
-      ON oyaji_sessions (guild_id, status);
+    CREATE INDEX IF NOT EXISTS idx_oyaji_sessions_user
+      ON oyaji_sessions (guild_id, user_id, status);
   `);
 
-  // ── oyaji_memories ──────────────────────────────────────────────
+  // ── oyaji_memories ─────────────────────────────────────────────
+  // 最大3件。開始メッセージに自然に混ぜるための短期記憶。
   db.exec(`
     CREATE TABLE IF NOT EXISTS oyaji_memories (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,7 +126,7 @@ function migrateOyaji(db) {
       ON oyaji_memories (guild_id, user_id, importance DESC, created_at DESC);
   `);
 
-  // ── oyaji_interactions ──────────────────────────────────────────
+  // ── oyaji_interactions ─────────────────────────────────────────
   db.exec(`
     CREATE TABLE IF NOT EXISTS oyaji_interactions (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,19 +145,13 @@ function migrateOyaji(db) {
     CREATE INDEX IF NOT EXISTS idx_oyaji_interactions_session
       ON oyaji_interactions (session_id, created_at DESC);
   `);
-
-  db.exec(`
-    CREATE INDEX IF NOT EXISTS idx_oyaji_interactions_user
-      ON oyaji_interactions (user_id, created_at DESC);
-  `);
 }
 
-// ── 再起動フェイルセーフ ────────────────────────────────────────────
+// ── 再起動フェイルセーフ ──────────────────────────────────────────
 
 /**
- * Bot 起動時に呼ぶ。
- * DB 上の active セッションを Discord の実態と照合し、
- * 孤立・陳腐化したセッションを適切に閉じる。
+ * Bot起動時に呼ぶ。
+ * DBのactiveセッションをDiscordの実態と照合する。
  *
  * @param {import('discord.js').Client} client
  * @returns {Promise<{ recovered: number, orphaned: number, stale: number }>}
@@ -176,76 +168,53 @@ async function recoverSessionsOnBoot(client) {
 
   logger.info('oyaji.boot.recovery_start', { count: activeSessions.length });
 
-  let recovered = 0;
-  let orphaned  = 0;
-  let stale     = 0;
+  let recovered = 0, orphaned = 0, stale = 0;
   const now = Date.now();
 
   for (const session of activeSessions) {
-    const { session_id, guild_id, voice_channel_id, owner_user_id, last_tick_at } = session;
+    const { session_id, guild_id, thread_id, last_interaction_at } = session;
 
-    // ケース1: last_tick_at が STALE_THRESHOLD より古い → 長時間放置
-    if (now - last_tick_at > STALE_THRESHOLD_MS) {
-      markSessionStale(session_id);
+    // ケース1: last_interaction_at が STALE_THRESHOLD より古い
+    if (now - last_interaction_at > STALE_THRESHOLD_MS) {
+      _updateSessionStatus(session_id, 'stale');
       stale++;
       logger.info('oyaji.boot.session_stale', {
-        session_id,
-        idle_min: Math.floor((now - last_tick_at) / 60000),
+        session_id, idle_min: Math.floor((now - last_interaction_at) / 60000),
       });
       continue;
     }
 
-    // ケース2: ギルドが見つからない
-    const guild = client.guilds.cache.get(guild_id);
-    if (!guild) {
-      markSessionOrphaned(session_id);
-      orphaned++;
-      logger.info('oyaji.boot.session_orphaned', { session_id, reason: 'guild_not_found' });
-      continue;
+    // ケース2: スレッドが存在しない
+    if (thread_id) {
+      const guild = client.guilds.cache.get(guild_id);
+      const thread = guild?.channels.cache.get(thread_id);
+      if (!thread) {
+        _updateSessionStatus(session_id, 'orphaned');
+        orphaned++;
+        logger.info('oyaji.boot.session_orphaned', { session_id, reason: 'thread_not_found' });
+        continue;
+      }
     }
 
-    // ケース3: VC が存在しない
-    const vc = guild.channels.cache.get(voice_channel_id);
-    if (!vc) {
-      markSessionOrphaned(session_id);
-      orphaned++;
-      logger.info('oyaji.boot.session_orphaned', { session_id, reason: 'vc_not_found' });
-      continue;
-    }
-
-    // ケース4: オーナーが VC にいない
-    if (!vc.members.has(owner_user_id)) {
-      markSessionOrphaned(session_id);
-      orphaned++;
-      logger.info('oyaji.boot.session_orphaned', { session_id, reason: 'owner_not_in_vc' });
-      continue;
-    }
-
-    // ケース5: オーナーがまだ VC にいる → 回復
+    // ケース3: 回復
     getDb()
       .prepare(`UPDATE oyaji_sessions SET restarted_at = ? WHERE session_id = ?`)
       .run(now, session_id);
     recovered++;
-    logger.info('oyaji.boot.session_recovered', { session_id, guild_id, voice_channel_id });
+    logger.info('oyaji.boot.session_recovered', { session_id });
   }
 
   logger.info('oyaji.boot.recovery_done', { recovered, orphaned, stale });
   return { recovered, orphaned, stale };
 }
 
-function markSessionOrphaned(sessionId) {
+function _updateSessionStatus(sessionId, status) {
   getDb()
-    .prepare(`UPDATE oyaji_sessions SET status = 'orphaned' WHERE session_id = ?`)
-    .run(sessionId);
+    .prepare(`UPDATE oyaji_sessions SET status = ? WHERE session_id = ?`)
+    .run(status, sessionId);
 }
 
-function markSessionStale(sessionId) {
-  getDb()
-    .prepare(`UPDATE oyaji_sessions SET status = 'stale' WHERE session_id = ?`)
-    .run(sessionId);
-}
-
-// ── oyaji_profiles ─────────────────────────────────────────────────
+// ── oyaji_profiles ────────────────────────────────────────────────
 
 function getProfile(guildId, userId) {
   return getDb()
@@ -261,75 +230,123 @@ function getOrCreateProfile(guildId, userId) {
   getDb()
     .prepare(`
       INSERT INTO oyaji_profiles
-        (guild_id, user_id, total_minutes, current_rank, current_stage, created_at, updated_at)
-      VALUES (?, ?, 0, 1, 'childhood', ?, ?)
+        (guild_id, user_id, last_visit_at, last_stage, session_count, created_at, updated_at)
+      VALUES (?, ?, NULL, NULL, 0, ?, ?)
     `)
     .run(guildId, userId, now, now);
 
   return getProfile(guildId, userId);
 }
 
-function addMinutesAndUpdateRank(guildId, userId, addMinutes = 1) {
-  const profile  = getOrCreateProfile(guildId, userId);
-  const prevRank = profile.current_rank;
-  const newTotal = profile.total_minutes + addMinutes;
-  const newRank  = calcRankFromMinutes(newTotal);
-  const newStage = getLifeStage(newRank).id;
+/**
+ * セッション開始時にprofileを更新する。
+ * @param {string} guildId
+ * @param {string} userId
+ * @param {string} stage - 選択した世代
+ */
+function updateProfileOnStart(guildId, userId, stage) {
+  getOrCreateProfile(guildId, userId);
 
   getDb()
     .prepare(`
       UPDATE oyaji_profiles
-         SET total_minutes = ?, current_rank = ?, current_stage = ?, updated_at = ?
+         SET last_visit_at = ?,
+             last_stage    = ?,
+             session_count = session_count + 1,
+             updated_at    = ?
        WHERE guild_id = ? AND user_id = ?
     `)
-    .run(newTotal, newRank, newStage, Date.now(), guildId, userId);
-
-  return { rank: newRank, stage: newStage, rankChanged: newRank !== prevRank };
+    .run(Date.now(), stage, Date.now(), guildId, userId);
 }
 
-// ── oyaji_sessions ─────────────────────────────────────────────────
+// ── oyaji_sessions ────────────────────────────────────────────────
 
-function getActiveSession(guildId, voiceChannelId) {
+/**
+ * ユーザーのアクティブセッションを返す。
+ */
+function getActiveSession(guildId, userId) {
   return getDb()
     .prepare(`
       SELECT * FROM oyaji_sessions
-       WHERE guild_id = ? AND voice_channel_id = ? AND status = 'active'
+       WHERE guild_id = ? AND user_id = ? AND status = 'active'
     `)
-    .get(guildId, voiceChannelId) || null;
+    .get(guildId, userId) || null;
 }
 
-function startSession({ guildId, voiceChannelId, textChannelId, ownerUserId, threadChannelId }) {
-  const existing = getActiveSession(guildId, voiceChannelId);
-  if (existing) return null;
+/**
+ * セッションIDでセッションを取得する。
+ */
+function getSessionById(sessionId) {
+  return getDb()
+    .prepare(`SELECT * FROM oyaji_sessions WHERE session_id = ?`)
+    .get(sessionId) || null;
+}
 
-  const profile   = getOrCreateProfile(guildId, ownerUserId);
+/**
+ * セッションを開始する。
+ * 既存のactiveセッションがあれば終了してから新規作成する（世代切替に対応）。
+ *
+ * @param {object} params
+ * @param {string} params.guildId
+ * @param {string} params.userId
+ * @param {string} params.textChannelId
+ * @param {string} params.stage        - 選択した世代ID
+ * @param {string} [params.threadId]
+ * @returns {object} 作成したセッション
+ */
+function startSession({ guildId, userId, textChannelId, stage, threadId }) {
   const now       = Date.now();
-  const sessionId = `${guildId}-${voiceChannelId}-${now}`;
+  const sessionId = `${guildId}-${userId}-${now}`;
+
+  // 既存のactiveセッションを終了（世代切替）
+  getDb()
+    .prepare(`
+      UPDATE oyaji_sessions SET status = 'ended'
+       WHERE guild_id = ? AND user_id = ? AND status = 'active'
+    `)
+    .run(guildId, userId);
 
   getDb()
     .prepare(`
       INSERT INTO oyaji_sessions
-        (session_id, guild_id, voice_channel_id, text_channel_id,
-         thread_channel_id, owner_user_id, started_at, last_tick_at,
-         current_rank, current_stage, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        (session_id, guild_id, user_id, text_channel_id, thread_id,
+         current_stage, started_at, last_interaction_at, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
     `)
-    .run(
-      sessionId, guildId, voiceChannelId, textChannelId,
-      threadChannelId || null, ownerUserId,
-      now, now, profile.current_rank, profile.current_stage,
-    );
+    .run(sessionId, guildId, userId, textChannelId, threadId || null,
+        stage, now, now);
 
-  logger.info('oyaji.session.start', {
-    sessionId, guildId, voiceChannelId, ownerUserId,
-    rank: profile.current_rank, stage: profile.current_stage,
-  });
+  // プロフィール更新
+  updateProfileOnStart(guildId, userId, stage);
+
+  logger.info('oyaji.session.start', { sessionId, guildId, userId, stage });
 
   return getDb()
     .prepare(`SELECT * FROM oyaji_sessions WHERE session_id = ?`)
     .get(sessionId);
 }
 
+/**
+ * セッションのthread_idを更新する（スレッド生成後に呼ぶ）。
+ */
+function updateSessionThread(sessionId, threadId) {
+  getDb()
+    .prepare(`UPDATE oyaji_sessions SET thread_id = ? WHERE session_id = ?`)
+    .run(threadId, sessionId);
+}
+
+/**
+ * セッションのlast_interaction_atを更新する（発言のたびに呼ぶ）。
+ */
+function touchSession(sessionId) {
+  getDb()
+    .prepare(`UPDATE oyaji_sessions SET last_interaction_at = ? WHERE session_id = ?`)
+    .run(Date.now(), sessionId);
+}
+
+/**
+ * セッションを終了する。
+ */
 function endSession(sessionId) {
   getDb()
     .prepare(`UPDATE oyaji_sessions SET status = 'ended' WHERE session_id = ?`)
@@ -337,19 +354,26 @@ function endSession(sessionId) {
   logger.info('oyaji.session.end', { sessionId });
 }
 
-function tickSession(sessionId, rank, stage) {
-  getDb()
+/**
+ * タイムアウト済みのアクティブセッションを全件返す。
+ * タイムアウトチェック用（setIntervalから呼ぶ）。
+ *
+ * @param {number} timeoutMs
+ * @returns {object[]}
+ */
+function getTimedOutSessions(timeoutMs) {
+  const threshold = Date.now() - timeoutMs;
+  return getDb()
     .prepare(`
-      UPDATE oyaji_sessions
-         SET last_tick_at = ?, current_rank = ?, current_stage = ?
-       WHERE session_id = ?
+      SELECT * FROM oyaji_sessions
+       WHERE status = 'active' AND last_interaction_at < ?
     `)
-    .run(Date.now(), rank, stage, sessionId);
+    .all(threshold);
 }
 
-// ── oyaji_memories ─────────────────────────────────────────────────
+// ── oyaji_memories ────────────────────────────────────────────────
 
-const MAX_MEMORIES = 10;
+const MAX_MEMORIES = 3; // 仕様: 最大3件
 
 function writeMemory({ guildId, userId, topicCategory, summary, importance = 1 }) {
   getDb()
@@ -360,6 +384,7 @@ function writeMemory({ guildId, userId, topicCategory, summary, importance = 1 }
     `)
     .run(guildId, userId, topicCategory, summary, importance, Date.now());
 
+  // MAX_MEMORIES超えた分を古い順に削除
   getDb()
     .prepare(`
       DELETE FROM oyaji_memories
@@ -374,7 +399,7 @@ function writeMemory({ guildId, userId, topicCategory, summary, importance = 1 }
     .run(guildId, userId, guildId, userId, MAX_MEMORIES);
 }
 
-function getRecentMemories(guildId, userId, limit = 5) {
+function getRecentMemories(guildId, userId) {
   return getDb()
     .prepare(`
       SELECT * FROM oyaji_memories
@@ -382,10 +407,10 @@ function getRecentMemories(guildId, userId, limit = 5) {
        ORDER BY importance DESC, created_at DESC
        LIMIT ?
     `)
-    .all(guildId, userId, limit);
+    .all(guildId, userId, MAX_MEMORIES);
 }
 
-// ── oyaji_interactions ─────────────────────────────────────────────
+// ── oyaji_interactions ────────────────────────────────────────────
 
 function logInteraction({ sessionId, userId, inputText, category, responseText, usedAi = false, templateId = null }) {
   getDb()
@@ -411,18 +436,25 @@ function getRecentInteractions(sessionId, limit = 3) {
 
 module.exports = {
   getDb,
+  STALE_THRESHOLD_MS,
+  // boot recovery
   recoverSessionsOnBoot,
-  markSessionOrphaned,
-  markSessionStale,
+  // profiles
   getProfile,
   getOrCreateProfile,
-  addMinutesAndUpdateRank,
+  updateProfileOnStart,
+  // sessions
   getActiveSession,
+  getSessionById,
   startSession,
+  updateSessionThread,
+  touchSession,
   endSession,
-  tickSession,
+  getTimedOutSessions,
+  // memories
   writeMemory,
   getRecentMemories,
+  // interactions
   logInteraction,
   getRecentInteractions,
 };
