@@ -35,7 +35,7 @@ const FORTUNE_TABLE = [
 ];
 
 // ─────────────────────────────────────────────
-// やみちゃんのひとこと（運勢別）
+// しばいぬのひとこと（運勢別）
 // ─────────────────────────────────────────────
 
 const YAMI_MESSAGES = {
@@ -45,7 +45,7 @@ const YAMI_MESSAGES = {
     kichi:    '吉🌸 普通っぽいけど、これって結構いいんだよね',
     suekichi: '末吉🌱 今日はゆっくりでいい。いつか咲く花だよ',
     kyo:      '凶🌧️ 無理しなくていい日だよ。休むのも勇気だから',
-    daikyo:   '大凶⛈️ やみも一緒にいるから、大丈夫だよ…っ',
+    daikyo:   '大凶⛈️ しばいぬも一緒にいるから、大丈夫だよ…っ',
 };
 
 // ─────────────────────────────────────────────
@@ -227,7 +227,7 @@ function buildOmikujiEmbed(fortune, text, username, opts = {}) {
 
 module.exports = {
     name: 'omikuji',
-    description: '/omikuji — やみちゃんのおみくじ（全100パターン）',
+    description: '/omikuji — しばいぬのおみくじ（全100パターン）',
 
     enabled() {
         return isFeatureEnabled('omikuji');
