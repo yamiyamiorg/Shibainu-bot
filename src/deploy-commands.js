@@ -53,6 +53,7 @@ const commands = [
   },
 ];
 
+/*
 // ── Oyaji機能（サブコマンドはSlashCommandBuilderで定義） ──────────
 // サブコマンドを持つコマンドはプレーンオブジェクトでは定義できないため
 // SlashCommandBuilder を使い、toJSON() で配列に追加する。
@@ -73,6 +74,7 @@ const oyajiCommand = new SlashCommandBuilder()
   );
 
 commands.push(oyajiCommand.toJSON());
+*/
 
 // ── デプロイ処理 ──────────────────────────────────────────────────
 console.log('📋 登録するコマンド:');
